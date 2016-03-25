@@ -1,27 +1,17 @@
-import numpy
+import numpy as np
 import cv2
 
+RED = np.array([0, 0, 255], dtype=np.uint8)
+BLUE = np.array([255, 0, 0], dtype=np.uint8)
+GREEN = np.array([0, 255, 0], dtype=np.uint8)
+BLACK = np.array([0, 0, 0], dtype=np.uint8)
+WHITE = np.array([255, 255, 255], dtype=np.uint8)
 
-def test(full_path):
-    image = cv2.imread(full_path)
-    cv2.imshow('test', image)
+UNKNOWN_AREA = np.uint8(-1)  # an area not marked by the user
 
-RED = numpy.array([255, 0, 0], dtype=numpy.uint8)
-BLUE = numpy.array([0, 0, 255], dtype=numpy.uint8)
-GREEN = numpy.array([0, 255, 0], dtype=numpy.uint8)
-BLACK = numpy.array([0, 0, 0], dtype=numpy.uint8)
-WHITE = numpy.array([255, 255, 255], dtype=numpy.uint8)
+CLASS_COLORS = [BLACK, WHITE, RED, GREEN]
 
-BG = {'color': BLACK, 'val': numpy.uint8(0)}
-FG = {'color': WHITE, 'val': numpy.uint8(1)}
-PR_BG = {'color': RED, 'val': numpy.uint8(2)}
-PR_FG = {'color': GREEN, 'val': numpy.uint8(3)}
-UNKNOWN = {'val': numpy.uint8(4)}
-
-CLASSES = [BG, FG, PR_BG, PR_FG]
-
-
-ESCAPE = 27
+ESCAPE_KEY = 27
 
 
 class ImageSegmentation:
@@ -31,7 +21,7 @@ class ImageSegmentation:
 
         self.original_img = cv2.imread(file_name)
         self.input_img = self.original_img.copy()
-        self.output_img = numpy.zeros(self.input_img.shape, numpy.uint8)
+        self.output_img = np.zeros(self.input_img.shape, np.uint8)
 
         #  Rectangle
         self.rect = (0, 0, 0, 0)
@@ -43,19 +33,18 @@ class ImageSegmentation:
         #  Classes
         self.line_class = 0
         self.line_drawn = False
-        self.input_mask = numpy.zeros(self.original_img.shape[:2], numpy.uint8)
-        self.input_mask += UNKNOWN['val']
-        self.classes_matrices = []
-        for clazz in CLASSES:
-            class_matrix = numpy.ndarray(self.original_img.shape, dtype=numpy.uint8)
-            for i in range(class_matrix.shape[0]):
-                for j in range(class_matrix.shape[1]):
-                    class_matrix[i][j] = clazz['color']
-            self.classes_matrices.append(class_matrix)
+        self.input_mask = np.zeros(self.original_img.shape[:2], np.uint8)
+        self.input_mask += UNKNOWN_AREA
 
         # Mask
-        self.mask = numpy.zeros(self.original_img.shape[:2], numpy.uint8)
-        self.mask += PR_BG['val']
+        self.mask = np.full(self.original_img.shape[:2], cv2.GC_PR_BGD, np.uint8)
+
+        # Arrays for GrabCut
+        self.bgdmodel = None
+        self.fgdmodel = None
+
+        # Hash grabcut been initiated
+        self.is_gc_initiated = False
 
         cv2.namedWindow(self.input_window_name)
         cv2.namedWindow(self.output_window_name)
@@ -66,7 +55,7 @@ class ImageSegmentation:
             self.update_windows()
             key = cv2.waitKey()
 
-            if key == ESCAPE:  # esc  exit
+            if key == ESCAPE_KEY:  # esc  exit
                 break
             elif key == ord('0'):
                 self.line_class = 0
@@ -76,7 +65,9 @@ class ImageSegmentation:
                 self.line_class = 2
             elif key == ord('3'):
                 self.line_class = 3
-            print('choose ', (key - ord('0')))
+            elif key == ord('n'):
+                self.calculate_cut()
+            print('choose ' + str(unichr(key)))
         cv2.destroyAllWindows()
 
     def create_mouse_listener(self):
@@ -106,7 +97,7 @@ class ImageSegmentation:
                     cv2.rectangle(self.input_img, start_point, end_point, rect_color, rect_bold)
                     self.update_windows()
 
-            if event == cv2.EVENT_RBUTTONUP:
+            elif event == cv2.EVENT_RBUTTONUP:
                 if self.rect_drawn:
                     self.rect_drawn = False
                     self.rect_ready = True
@@ -119,95 +110,53 @@ class ImageSegmentation:
                     cv2.rectangle(self.input_img, start_point, end_point, rect_color, rect_bold)
                     self.update_windows()
 
-            elif event == cv2.EVENT_LBUTTONDOWN:
-                if not self.rect_ready:
-                    print("first draw rectangle \n")
-                else:
-                    self.line_drawn = True
-                    clazz = CLASSES[self.line_class]
-                    cv2.circle(self.input_mask, (x, y), thickness, int(clazz['val']), -1)
-                    cv2.circle(self.input_img, (x, y), thickness, clazz['color'].tolist(), -1)
-                    self.update_windows()
+            # Color Lines
+            if event == cv2.EVENT_LBUTTONDOWN:
+                self.line_drawn = True
+                clazz_color = CLASS_COLORS[self.line_class]
+                cv2.circle(self.input_mask, (x, y), thickness, self.line_class, -1)
+                cv2.circle(self.input_img, (x, y), thickness, clazz_color.tolist(), -1)
+                self.update_windows()
 
             elif event == cv2.EVENT_MOUSEMOVE:
                 if self.line_drawn:
-                    clazz = CLASSES[self.line_class]
-                    cv2.circle(self.input_mask, (x, y), thickness, int(clazz['val']), -1)
-                    cv2.circle(self.input_img, (x, y), thickness, clazz['color'].tolist(), -1)
+                    clazz_color = CLASS_COLORS[self.line_class]
+                    cv2.circle(self.input_mask, (x, y), thickness, self.line_class, -1)
+                    cv2.circle(self.input_img, (x, y), thickness, clazz_color.tolist(), -1)
                     self.update_windows()
 
             elif event == cv2.EVENT_LBUTTONUP:
                 if self.line_drawn:
                     self.line_drawn = False
-                    clazz = CLASSES[self.line_class]
-                    cv2.circle(self.input_mask, (x, y), thickness, int(clazz['val']), -1)
-                    cv2.circle(self.input_img, (x, y), thickness, clazz['color'].tolist(), -1)
+                    clazz_color = CLASS_COLORS[self.line_class]
+                    cv2.circle(self.input_mask, (x, y), thickness, self.line_class, -1)
+                    cv2.circle(self.input_img, (x, y), thickness, clazz_color.tolist(), -1)
                     self.update_windows()
 
         return mouse_listener
 
-    def update_windows(self):
-        # extended_input_mask = numpy.stack((self.input_mask, self.input_mask, self.input_mask), axis=2)
-        # for clazz in CLASSES:
-        #     self.input_img = numpy.where(extended_input_mask == clazz['val'], clazz['color'], self.input_img)
-        # self.mask = numpy.where(self.input_mask != UNKNOWN['val'], self.input_mask, self.mask)
+    def calculate_cut(self):
+        if len(np.unique(self.input_mask)) <= 2:
+            print('Put some colors on the picture!!')
+            return
 
+        self.mask = np.where(self.input_mask == 0, cv2.GC_BGD, self.mask)
+        self.mask = np.where(self.input_mask == 1, cv2.GC_BGD, self.mask)
+        self.mask = np.where(self.input_mask == 2, cv2.GC_FGD, self.mask)
+        self.mask = np.where(self.input_mask == 3, cv2.GC_FGD, self.mask)
+
+        try:
+            if not self.is_gc_initiated:
+                cv2.grabCut(self.original_img, self.mask, None, self.bgdmodel, self.fgdmodel, 1, cv2.GC_INIT_WITH_MASK)
+            else:
+                cv2.grabCut(self.original_img, self.mask, None, self.bgdmodel, self.fgdmodel, 1, cv2.GC_EVAL)
+        except cv2.error:
+            print('GrabCut failed. There may be not enough information from the user')
+
+        classes_1_2 = np.logical_or(self.mask == cv2.GC_PR_FGD, self.mask == cv2.GC_FGD) * np.array([255])
+        classes_1_2 = classes_1_2.astype('uint8')
+        self.output_img = cv2.bitwise_and(self.original_img, self.original_img, mask=classes_1_2)
+
+    def update_windows(self):
         cv2.imshow(self.input_window_name, self.input_img)
         cv2.imshow(self.output_window_name, self.output_img)
-
-
-def run():
-    length = 25
-    array = get_random_array(length)
-    print('Initialize state')
-    print(array)
-
-    merge_sort(array)
-
-    print('After sort state')
-    print(array)
-
-
-def get_random_array(length):
-    array = []
-    for _ in range(length):
-        array.append(random.random())
-    return array
-
-
-def merge_sort(array):
-    length = len(array)
-    merge_sort_internal(array, 0, length)
-
-
-def merge_sort_internal(array, begin, end):
-    length = end - begin
-    if length < 2:  # array of length 0 or 1 is always sorted
-        return
-    half_length = length / 2
-    merge_sort_internal(array, begin, begin + half_length)
-    merge_sort_internal(array, begin + half_length, end)
-
-    temp_array = []
-    i = begin
-    j = begin + half_length
-
-    while i < begin + half_length and j < end:
-        a = array[i]
-        b = array[j]
-        if a < b:
-            temp_array.append(a)
-            i += 1
-        else:
-            temp_array.append(b)
-            j += 1
-    while i < begin + half_length:
-        temp_array.append(array[i])
-        i += 1
-    while j < end:
-        temp_array.append(array[j])
-        j += 1
-
-    # Copy sorted items from temp array
-    for i in range(begin, end):
-        array[i] = temp_array[i]
