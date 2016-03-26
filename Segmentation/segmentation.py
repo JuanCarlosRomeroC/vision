@@ -9,7 +9,8 @@ WHITE = np.array([255, 255, 255], dtype=np.uint8)
 
 UNKNOWN_AREA = np.uint8(-1)  # an area not marked by the user
 
-CLASS_COLORS = [BLACK, WHITE, RED, GREEN]
+CLASS_COLORS = [BLACK, WHITE, BLUE, GREEN]
+RECT_COLOR = RED
 
 ESCAPE_KEY = 27
 
@@ -36,12 +37,8 @@ class ImageSegmentation:
         self.input_mask = np.zeros(self.original_img.shape[:2], np.uint8)
         self.input_mask += UNKNOWN_AREA
 
-        # Mask
-        self.mask = np.full(self.original_img.shape[:2], cv2.GC_PR_BGD, np.uint8)
-
-        # Arrays for GrabCut
-        self.bgdmodel = None
-        self.fgdmodel = None
+        # Grabcut Parameters - phases 1 2 3
+        self.grabcut_params = [{}, {}, {}]
 
         # Hash grabcut been initiated
         self.is_gc_initiated = False
@@ -74,7 +71,6 @@ class ImageSegmentation:
         def mouse_listener(event, x, y, flags, param):
 
             thickness = 3
-            rect_color = [255, 0, 0]
             rect_bold = 2
 
             # Draw Rectangle
@@ -84,7 +80,7 @@ class ImageSegmentation:
                 self.input_img = self.original_img.copy()
                 start_point = (self.rect[0], self.rect[1])
                 end_point = (self.rect[2], self.rect[3])
-                cv2.rectangle(self.input_img, start_point, end_point, rect_color, rect_bold)
+                cv2.rectangle(self.input_img, start_point, end_point, RECT_COLOR, rect_bold)
                 self.update_windows()
 
             elif event == cv2.EVENT_MOUSEMOVE:
@@ -94,7 +90,7 @@ class ImageSegmentation:
                     self.input_img = self.original_img.copy()
                     start_point = (self.rect[0], self.rect[1])
                     end_point = (self.rect[2], self.rect[3])
-                    cv2.rectangle(self.input_img, start_point, end_point, rect_color, rect_bold)
+                    cv2.rectangle(self.input_img, start_point, end_point, RECT_COLOR, rect_bold)
                     self.update_windows()
 
             elif event == cv2.EVENT_RBUTTONUP:
@@ -107,7 +103,7 @@ class ImageSegmentation:
                     self.input_img = self.original_img.copy()
                     start_point = (self.rect[0], self.rect[1])
                     end_point = (self.rect[2], self.rect[3])
-                    cv2.rectangle(self.input_img, start_point, end_point, rect_color, rect_bold)
+                    cv2.rectangle(self.input_img, start_point, end_point, RECT_COLOR, rect_bold)
                     self.update_windows()
 
             # Color Lines
@@ -140,23 +136,89 @@ class ImageSegmentation:
             print('Put some colors on the picture!!')
             return
 
-        self.mask = np.where(self.input_mask == 0, cv2.GC_BGD, self.mask)
-        self.mask = np.where(self.input_mask == 1, cv2.GC_BGD, self.mask)
-        self.mask = np.where(self.input_mask == 2, cv2.GC_FGD, self.mask)
-        self.mask = np.where(self.input_mask == 3, cv2.GC_FGD, self.mask)
+        if not self.is_gc_initiated:
+            for phase in self.grabcut_params:
+                # phase['mask'] = np.full(self.input_mask.shape, cv2.GC_PR_BGD, dtype=np.uint8)
+                phase['mask'] = np.random.choice([cv2.GC_PR_BGD, cv2.GC_PR_FGD], size=self.input_mask.shape).astype(
+                    np.uint8)
+                phase['fgdmodel'] = None
+                phase['bgdmodel'] = None
+            self.is_gc_initiated = True
+
+        # Phase 1
+
+        gc_phase = self.grabcut_params[0]
+        gc_phase['mask'] = np.where(self.input_mask == 0, cv2.GC_FGD, gc_phase['mask'])
+        gc_phase['mask'] = np.where(self.input_mask == 1, cv2.GC_FGD, gc_phase['mask'])
+        gc_phase['mask'] = np.where(self.input_mask == 2, cv2.GC_BGD, gc_phase['mask'])
+        gc_phase['mask'] = np.where(self.input_mask == 3, cv2.GC_BGD, gc_phase['mask'])
 
         try:
             if not self.is_gc_initiated:
-                cv2.grabCut(self.original_img, self.mask, None, self.bgdmodel, self.fgdmodel, 1, cv2.GC_INIT_WITH_MASK)
+                cv2.grabCut(self.original_img, gc_phase['mask'], None, gc_phase['bgdmodel'], gc_phase['fgdmodel'], 3,
+                            cv2.GC_INIT_WITH_MASK)
             else:
-                cv2.grabCut(self.original_img, self.mask, None, self.bgdmodel, self.fgdmodel, 1, cv2.GC_EVAL)
+                print gc_phase['mask'].sum()
+                cv2.grabCut(self.original_img, gc_phase['mask'], None, gc_phase['bgdmodel'], gc_phase['fgdmodel'], 3,
+                            cv2.GC_EVAL)
+                print gc_phase['mask'].sum()
         except cv2.error:
             print('GrabCut failed. There may be not enough information from the user')
 
-        classes_1_2 = np.logical_or(self.mask == cv2.GC_PR_FGD, self.mask == cv2.GC_FGD) * np.array([255])
-        classes_1_2 = classes_1_2.astype('uint8')
-        self.output_img = cv2.bitwise_and(self.original_img, self.original_img, mask=classes_1_2)
+        classes_0_1 = np.logical_or(gc_phase['mask'] == cv2.GC_PR_FGD, gc_phase['mask'] == cv2.GC_FGD)
+        classes_0_1 = classes_0_1.astype('uint8')
+        classes_2_3 = np.logical_not(classes_0_1)
+
+        # Phase 2
+
+        gc_phase = self.grabcut_params[1]
+        gc_phase['mask'] = np.full(self.input_mask.shape, cv2.GC_PR_BGD, dtype=np.uint8)
+        gc_phase['mask'] = np.where(self.input_mask == 0, cv2.GC_FGD, gc_phase['mask'])
+        gc_phase['mask'] = np.where(self.input_mask == 1, cv2.GC_BGD, gc_phase['mask'])
+        try:
+            if not self.is_gc_initiated:
+                cv2.grabCut(self.original_img, gc_phase['mask'], None, gc_phase['bgdmodel'], gc_phase['fgdmodel'], 3,
+                            cv2.GC_INIT_WITH_MASK)
+            else:
+                cv2.grabCut(self.original_img, gc_phase['mask'], None, gc_phase['bgdmodel'], gc_phase['fgdmodel'], 3,
+                            cv2.GC_EVAL)
+        except cv2.error:
+            print('GrabCut failed. There may be not enough information from the user')
+
+        class_0 = np.logical_or(gc_phase['mask'] == cv2.GC_PR_FGD, gc_phase['mask'] == cv2.GC_FGD)
+        class_0 = np.logical_and(class_0, classes_0_1)
+        class_1 = np.logical_and(classes_0_1, np.logical_not(class_0))
+
+        # Phase 3
+
+        gc_phase = self.grabcut_params[2]
+        gc_phase['mask'] = np.full(self.input_mask.shape, cv2.GC_PR_BGD, dtype=np.uint8)
+        gc_phase['mask'] = np.where(self.input_mask == 2, cv2.GC_FGD, gc_phase['mask'])
+        gc_phase['mask'] = np.where(self.input_mask == 3, cv2.GC_BGD, gc_phase['mask'])
+        try:
+            if not self.is_gc_initiated:
+                cv2.grabCut(self.original_img, gc_phase['mask'], None, gc_phase['bgdmodel'], gc_phase['fgdmodel'], 3,
+                            cv2.GC_INIT_WITH_MASK)
+            else:
+                cv2.grabCut(self.original_img, gc_phase['mask'], None, gc_phase['bgdmodel'], gc_phase['fgdmodel'], 3,
+                            cv2.GC_EVAL)
+        except cv2.error:
+            print('GrabCut failed. There may be not enough information from the user')
+
+        class_2 = np.logical_or(gc_phase['mask'] == cv2.GC_PR_FGD, gc_phase['mask'] == cv2.GC_FGD)
+        class_2 = np.logical_and(class_2, classes_2_3)
+        class_3 = np.logical_and(classes_2_3, np.logical_not(class_2))
+
+        self.output_img = np.ndarray(self.original_img.shape, dtype=np.uint8)
+        self.output_img = np.where(triple(class_0), CLASS_COLORS[0], self.output_img)
+        self.output_img = np.where(triple(class_1), CLASS_COLORS[1], self.output_img)
+        self.output_img = np.where(triple(class_2), CLASS_COLORS[2], self.output_img)
+        self.output_img = np.where(triple(class_3), CLASS_COLORS[3], self.output_img)
 
     def update_windows(self):
         cv2.imshow(self.input_window_name, self.input_img)
         cv2.imshow(self.output_window_name, self.output_img)
+
+
+def triple(matrix):
+    return np.dstack((matrix, matrix, matrix))
