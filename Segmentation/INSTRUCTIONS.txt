@@ -1,0 +1,49 @@
+Barak Ugav 	318336229
+Yishai Gronich 	208989186
+
+
+Using the Program
+=================
+
+
+Long explanation:
+-----------------
+
+* The program should be run from the command line, given three parameters:
+	1. Path (relative to current directory, or absolute) of the input image, that should be segmented
+	2. Path for the output image (i.e. "./output/segmented.jpg"). 
+	   The wrapping folder (i.e. "./output/") should already exist.
+	3. Path for the output mask (i.e. "./output/mask.txt"). 
+	   The wrapping folder (i.e. "./output/") should already exist.
+* Once the program is loaded with the correct parameters, three windows show up:
+	* The input window - shows the input image and on top of it, all the user-markings of segments (four colors)
+	* The output window - shows the output, from the last time the segmentation algorithm was called.
+		Shows the original image, and on top of it, semi-transparent colored overlays,
+		representing the four segements.
+	* The segments window - shows the segments that were calculated in the last time the algorithm was called.
+		Each segment is represented using its color - together creating a segments-mask.
+* User interaction:
+	* Right-clicking on the input window's image and dragging the mouse causes a new segment-mark to be drawn,
+	  using the current pen color (default: 0 - black). This gives hints for the segmenting alogrithm, 
+	  where each segment is located.
+	* Pressing on the keyboard buttons 0-3 changes the pen color (and the corresponding segment).
+	  At least 3 different colors should be used before running the algorithm.
+	* Pressing on the keyboard button 'n' runs the segmentation algorithm, and updates the output window
+	  and the segments window in response.
+	* Pressing on the keyboard button 's' saves two files:
+		* Output image - the original image with segment colors marked over it.
+		* Mask - a text file, holding a matrix of numbers 0-3 representing the segment number
+			that each pixel belongs to.
+
+
+Short Explanation (the built-in instructions):
+----------------------------------------------
+
+Usage: python <>.py <input-image-path> <path-for-output-segmented-image> <path-for-output-mask>
+    Example: python __main__.py ../img/man.jpg ./output/segmented.jpg ./output/mask.txt
+
+    If the input path is a valid image, you will be able to mark four segments on the image.
+    Key presses:
+    0-3     - changes the segment number currently being marked
+    n       - uses the current markings to calculate the segments and display them in the output window
+    s       - save the output image and mask to the given output paths

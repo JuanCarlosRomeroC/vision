@@ -16,13 +16,19 @@ ESCAPE_KEY = 27
 
 
 class ImageSegmentation:
-    def __init__(self, file_name):
+    def __init__(self, file_name, output_image_path, output_mask_path):
         self.input_window_name = 'input'
         self.output_window_name = 'output'
+        self.segments_window_name = 'segments'
 
         self.original_img = cv2.imread(file_name)
         self.input_img = self.original_img.copy()
-        self.output_img = np.zeros(self.input_img.shape, np.uint8)
+        self.segments_img = np.zeros(self.input_img.shape, np.uint8)
+
+        self.output_mask = np.zeros(self.input_img.shape[0:2], dtype='uint8')
+        self.output_img = np.zeros(self.input_img.shape, dtype='uint8')
+        self.output_img_path = output_image_path
+        self.output_mask_path = output_mask_path
 
         #  Rectangle
         self.rect = (0, 0, 0, 0)
@@ -52,6 +58,7 @@ class ImageSegmentation:
             self.update_windows()
             key = cv2.waitKey()
 
+            print('Key pressed: ' + str(unichr(key)))
             if key == ESCAPE_KEY:  # esc  exit
                 break
             elif key == ord('0'):
@@ -64,7 +71,8 @@ class ImageSegmentation:
                 self.line_class = 3
             elif key == ord('n'):
                 self.calculate_cut()
-            print('choose ' + str(unichr(key)))
+            elif key == ord('s'):
+                self.save_output()
         cv2.destroyAllWindows()
 
     def create_mouse_listener(self):
@@ -158,10 +166,8 @@ class ImageSegmentation:
                 cv2.grabCut(self.original_img, gc_phase['mask'], None, gc_phase['bgdmodel'], gc_phase['fgdmodel'], 3,
                             cv2.GC_INIT_WITH_MASK)
             else:
-                print gc_phase['mask'].sum()
                 cv2.grabCut(self.original_img, gc_phase['mask'], None, gc_phase['bgdmodel'], gc_phase['fgdmodel'], 3,
                             cv2.GC_INIT_WITH_MASK)
-                print gc_phase['mask'].sum()
         except cv2.error:
             print('GrabCut failed. There may be not enough information from the user')
 
@@ -169,13 +175,13 @@ class ImageSegmentation:
         classes_0_1 = classes_0_1.astype('uint8')
         classes_2_3 = np.logical_not(classes_0_1)
 
-        # Phases 2+3
+        # Phases 2+3 initialization
 
         marked_classes = np.unique(self.input_mask)
-        class_0 = np.full(self.input_mask.shape, fill_value=False)
-        class_1 = np.full(self.input_mask.shape, fill_value=False)
-        class_2 = np.full(self.input_mask.shape, fill_value=False)
-        class_3 = np.full(self.input_mask.shape, fill_value=False)
+        class_0 = np.zeros(self.input_mask.shape)
+        class_1 = np.zeros(self.input_mask.shape)
+        class_2 = np.zeros(self.input_mask.shape)
+        class_3 = np.zeros(self.input_mask.shape)
 
         # Phase 2
 
@@ -186,10 +192,12 @@ class ImageSegmentation:
             gc_phase['mask'] = np.where(self.input_mask == 1, cv2.GC_BGD, gc_phase['mask'])
             try:
                 if not self.is_gc_initiated:
-                    cv2.grabCut(self.original_img, gc_phase['mask'], None, gc_phase['bgdmodel'], gc_phase['fgdmodel'], 3,
+                    cv2.grabCut(self.original_img, gc_phase['mask'], None, gc_phase['bgdmodel'], gc_phase['fgdmodel'],
+                                3,
                                 cv2.GC_INIT_WITH_MASK)
                 else:
-                    cv2.grabCut(self.original_img, gc_phase['mask'], None, gc_phase['bgdmodel'], gc_phase['fgdmodel'], 3,
+                    cv2.grabCut(self.original_img, gc_phase['mask'], None, gc_phase['bgdmodel'], gc_phase['fgdmodel'],
+                                3,
                                 cv2.GC_EVAL)
             except cv2.error:
                 print('GrabCut failed. There may be not enough information from the user')
@@ -211,10 +219,12 @@ class ImageSegmentation:
             gc_phase['mask'] = np.where(self.input_mask == 3, cv2.GC_BGD, gc_phase['mask'])
             try:
                 if not self.is_gc_initiated:
-                    cv2.grabCut(self.original_img, gc_phase['mask'], None, gc_phase['bgdmodel'], gc_phase['fgdmodel'], 3,
+                    cv2.grabCut(self.original_img, gc_phase['mask'], None, gc_phase['bgdmodel'], gc_phase['fgdmodel'],
+                                3,
                                 cv2.GC_INIT_WITH_MASK)
                 else:
-                    cv2.grabCut(self.original_img, gc_phase['mask'], None, gc_phase['bgdmodel'], gc_phase['fgdmodel'], 3,
+                    cv2.grabCut(self.original_img, gc_phase['mask'], None, gc_phase['bgdmodel'], gc_phase['fgdmodel'],
+                                3,
                                 cv2.GC_EVAL)
             except cv2.error:
                 print('GrabCut failed. There may be not enough information from the user')
@@ -227,16 +237,34 @@ class ImageSegmentation:
         elif 3 in marked_classes:
             class_3 = classes_2_3
 
-        self.output_img = np.ndarray(self.original_img.shape, dtype=np.uint8)
-        self.output_img = np.where(triple(class_0), CLASS_COLORS[0], self.output_img)
-        self.output_img = np.where(triple(class_1), CLASS_COLORS[1], self.output_img)
-        self.output_img = np.where(triple(class_2), CLASS_COLORS[2], self.output_img)
-        self.output_img = np.where(triple(class_3), CLASS_COLORS[3], self.output_img)
+        self.segments_img = np.ndarray(self.original_img.shape, dtype=np.uint8)
+        self.segments_img = np.where(triple(class_0), CLASS_COLORS[0], self.segments_img)
+        self.segments_img = np.where(triple(class_1), CLASS_COLORS[1], self.segments_img)
+        self.segments_img = np.where(triple(class_2), CLASS_COLORS[2], self.segments_img)
+        self.segments_img = np.where(triple(class_3), CLASS_COLORS[3], self.segments_img)
+
+        self.output_img = (self.segments_img * 0.55 + self.original_img * 0.45).astype('uint8')
+        self.output_mask = np.where(class_0, 0, self.output_mask)
+        self.output_mask = np.where(class_1, 1, self.output_mask)
+        self.output_mask = np.where(class_2, 2, self.output_mask)
+        self.output_mask = np.where(class_3, 3, self.output_mask)
 
     def update_windows(self):
         cv2.imshow(self.input_window_name, self.input_img)
         cv2.imshow(self.output_window_name, self.output_img)
+        cv2.imshow(self.segments_window_name, self.segments_img)
+
+    def save_output(self):
+        cv2.imwrite(self.output_img_path, self.output_img)
+        np.savetxt(self.output_mask_path, self.output_mask, fmt="%d")
+        print('Wrote output files.')
 
 
 def triple(matrix):
     return np.dstack((matrix, matrix, matrix))
+
+
+def rgb2gray(rgb):
+    r, g, b = rgb[:, :, 0], rgb[:, :, 1], rgb[:, :, 2]
+    gray = 0.2989 * r + 0.5870 * g + 0.1140 * b
+    return gray
