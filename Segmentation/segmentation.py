@@ -138,9 +138,9 @@ class ImageSegmentation:
 
         if not self.is_gc_initiated:
             for phase in self.grabcut_params:
-                # phase['mask'] = np.full(self.input_mask.shape, cv2.GC_PR_BGD, dtype=np.uint8)
-                phase['mask'] = np.random.choice([cv2.GC_PR_BGD, cv2.GC_PR_FGD], size=self.input_mask.shape).astype(
-                    np.uint8)
+                phase['mask'] = np.full(self.input_mask.shape, cv2.GC_PR_BGD, dtype=np.uint8)
+                # phase['mask'] = np.random.choice([cv2.GC_PR_BGD, cv2.GC_PR_FGD], size=self.input_mask.shape).astype(
+                #     np.uint8)
                 phase['fgdmodel'] = None
                 phase['bgdmodel'] = None
             self.is_gc_initiated = True
@@ -160,7 +160,7 @@ class ImageSegmentation:
             else:
                 print gc_phase['mask'].sum()
                 cv2.grabCut(self.original_img, gc_phase['mask'], None, gc_phase['bgdmodel'], gc_phase['fgdmodel'], 3,
-                            cv2.GC_EVAL)
+                            cv2.GC_INIT_WITH_MASK)
                 print gc_phase['mask'].sum()
         except cv2.error:
             print('GrabCut failed. There may be not enough information from the user')
@@ -169,45 +169,63 @@ class ImageSegmentation:
         classes_0_1 = classes_0_1.astype('uint8')
         classes_2_3 = np.logical_not(classes_0_1)
 
+        # Phases 2+3
+
+        marked_classes = np.unique(self.input_mask)
+        class_0 = np.full(self.input_mask.shape, fill_value=False)
+        class_1 = np.full(self.input_mask.shape, fill_value=False)
+        class_2 = np.full(self.input_mask.shape, fill_value=False)
+        class_3 = np.full(self.input_mask.shape, fill_value=False)
+
         # Phase 2
 
-        gc_phase = self.grabcut_params[1]
-        gc_phase['mask'] = np.full(self.input_mask.shape, cv2.GC_PR_BGD, dtype=np.uint8)
-        gc_phase['mask'] = np.where(self.input_mask == 0, cv2.GC_FGD, gc_phase['mask'])
-        gc_phase['mask'] = np.where(self.input_mask == 1, cv2.GC_BGD, gc_phase['mask'])
-        try:
-            if not self.is_gc_initiated:
-                cv2.grabCut(self.original_img, gc_phase['mask'], None, gc_phase['bgdmodel'], gc_phase['fgdmodel'], 3,
-                            cv2.GC_INIT_WITH_MASK)
-            else:
-                cv2.grabCut(self.original_img, gc_phase['mask'], None, gc_phase['bgdmodel'], gc_phase['fgdmodel'], 3,
-                            cv2.GC_EVAL)
-        except cv2.error:
-            print('GrabCut failed. There may be not enough information from the user')
+        if 0 in marked_classes and 1 in marked_classes:
+            gc_phase = self.grabcut_params[1]
+            gc_phase['mask'] = np.full(self.input_mask.shape, cv2.GC_PR_BGD, dtype=np.uint8)
+            gc_phase['mask'] = np.where(self.input_mask == 0, cv2.GC_FGD, gc_phase['mask'])
+            gc_phase['mask'] = np.where(self.input_mask == 1, cv2.GC_BGD, gc_phase['mask'])
+            try:
+                if not self.is_gc_initiated:
+                    cv2.grabCut(self.original_img, gc_phase['mask'], None, gc_phase['bgdmodel'], gc_phase['fgdmodel'], 3,
+                                cv2.GC_INIT_WITH_MASK)
+                else:
+                    cv2.grabCut(self.original_img, gc_phase['mask'], None, gc_phase['bgdmodel'], gc_phase['fgdmodel'], 3,
+                                cv2.GC_EVAL)
+            except cv2.error:
+                print('GrabCut failed. There may be not enough information from the user')
 
-        class_0 = np.logical_or(gc_phase['mask'] == cv2.GC_PR_FGD, gc_phase['mask'] == cv2.GC_FGD)
-        class_0 = np.logical_and(class_0, classes_0_1)
-        class_1 = np.logical_and(classes_0_1, np.logical_not(class_0))
+            class_0 = np.logical_or(gc_phase['mask'] == cv2.GC_PR_FGD, gc_phase['mask'] == cv2.GC_FGD)
+            class_0 = np.logical_and(class_0, classes_0_1)
+            class_1 = np.logical_and(classes_0_1, np.logical_not(class_0))
+        elif 0 in marked_classes:
+            class_0 = classes_0_1
+        elif 1 in marked_classes:
+            class_1 = classes_0_1
 
         # Phase 3
 
-        gc_phase = self.grabcut_params[2]
-        gc_phase['mask'] = np.full(self.input_mask.shape, cv2.GC_PR_BGD, dtype=np.uint8)
-        gc_phase['mask'] = np.where(self.input_mask == 2, cv2.GC_FGD, gc_phase['mask'])
-        gc_phase['mask'] = np.where(self.input_mask == 3, cv2.GC_BGD, gc_phase['mask'])
-        try:
-            if not self.is_gc_initiated:
-                cv2.grabCut(self.original_img, gc_phase['mask'], None, gc_phase['bgdmodel'], gc_phase['fgdmodel'], 3,
-                            cv2.GC_INIT_WITH_MASK)
-            else:
-                cv2.grabCut(self.original_img, gc_phase['mask'], None, gc_phase['bgdmodel'], gc_phase['fgdmodel'], 3,
-                            cv2.GC_EVAL)
-        except cv2.error:
-            print('GrabCut failed. There may be not enough information from the user')
+        if 2 in marked_classes and 3 in marked_classes:
+            gc_phase = self.grabcut_params[2]
+            gc_phase['mask'] = np.full(self.input_mask.shape, cv2.GC_PR_BGD, dtype=np.uint8)
+            gc_phase['mask'] = np.where(self.input_mask == 2, cv2.GC_FGD, gc_phase['mask'])
+            gc_phase['mask'] = np.where(self.input_mask == 3, cv2.GC_BGD, gc_phase['mask'])
+            try:
+                if not self.is_gc_initiated:
+                    cv2.grabCut(self.original_img, gc_phase['mask'], None, gc_phase['bgdmodel'], gc_phase['fgdmodel'], 3,
+                                cv2.GC_INIT_WITH_MASK)
+                else:
+                    cv2.grabCut(self.original_img, gc_phase['mask'], None, gc_phase['bgdmodel'], gc_phase['fgdmodel'], 3,
+                                cv2.GC_EVAL)
+            except cv2.error:
+                print('GrabCut failed. There may be not enough information from the user')
 
-        class_2 = np.logical_or(gc_phase['mask'] == cv2.GC_PR_FGD, gc_phase['mask'] == cv2.GC_FGD)
-        class_2 = np.logical_and(class_2, classes_2_3)
-        class_3 = np.logical_and(classes_2_3, np.logical_not(class_2))
+            class_2 = np.logical_or(gc_phase['mask'] == cv2.GC_PR_FGD, gc_phase['mask'] == cv2.GC_FGD)
+            class_2 = np.logical_and(class_2, classes_2_3)
+            class_3 = np.logical_and(classes_2_3, np.logical_not(class_2))
+        elif 2 in marked_classes:
+            class_2 = classes_2_3
+        elif 3 in marked_classes:
+            class_3 = classes_2_3
 
         self.output_img = np.ndarray(self.original_img.shape, dtype=np.uint8)
         self.output_img = np.where(triple(class_0), CLASS_COLORS[0], self.output_img)

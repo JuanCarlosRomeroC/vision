@@ -1,5 +1,5 @@
 import segmentation
 
-path = '../img/elephant.jpg'
+path = '../img/zebras.png'
 segmentor = segmentation.ImageSegmentation(path)
 segmentor.run()
