@@ -1,17 +1,17 @@
-import cv2 as cv
+import cv2
+import BagOfWordsDetector.detector as detector
 
-img = cv.imread('img/motorcycle001.jpg')
-gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
-sifter = cv.SURF.detect(gray)
-key_points = sifter.detect(gray, None)
-cv.drawKeypoints(img, key_points, img)
-cv.imshow('window', img)
+motorcycle_detector = detector.ObjectDetector()
+motorcycle_detector.train('./img/neg', './img/pos')
 
-img = cv.imread('img/motorcycle001.jpg')
-gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
-sifter = cv.FastFeatureDetector_create()
-key_points = sifter.detect(gray, None)
-cv.drawKeypoints(img, key_points, img)
-cv.imshow('window2', img)
-
-cv.waitKey()
+print('\nMagical Predictions:')
+test_img = cv2.imread('./img/pos/motorcycle001.jpg')
+print(motorcycle_detector.predict(test_img))
+test_img = cv2.imread('./img/pos/motorcycle005.jpg')
+print(motorcycle_detector.predict(test_img))
+test_img = cv2.imread('./img/pos/motorcycle010.jpg')
+print(motorcycle_detector.predict(test_img))
+test_img = cv2.imread('./img/neg/nature001.jpg')
+print(motorcycle_detector.predict(test_img))
+test_img = cv2.imread('./img/neg/nature003.jpg')
+print(motorcycle_detector.predict(test_img))
