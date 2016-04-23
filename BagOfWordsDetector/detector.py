@@ -37,7 +37,11 @@ class ObjectDetector:
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         sifter = cv2.xfeatures2d.SIFT_create()
         key_points = sifter.detect(gray, None)
-        return [(p.angle, p.pt[0], p.pt[1], p.size * 10) for p in key_points]
+        width = gray.shape[0]
+        height = gray.shape[1]
+        estimated_size_factor = (width + height) / 2
+        # TODO - calculate the size factor specificly for each key point depending on the <angle, width, height>
+        return [(p.angle, p.pt[0] / height, p.pt[1] / width, p.size / estimated_size_factor) for p in key_points]
 
     def train_classifier(self, negative_vectors, positive_vectors):
         all_vectors = []
@@ -109,6 +113,6 @@ class ObjectDetector:
             raise Exception('Object detector cannot predict before being trained')
         else:
             unknown = np.stack((self.feature_vector(img),))
-            return self._classifier.predict(unknown)[0]
+            return self._classifier.predict(unknown)[0] == 1
 
 
