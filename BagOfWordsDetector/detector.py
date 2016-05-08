@@ -1,16 +1,19 @@
 import os
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.neighbors import KNeighborsClassifier
 
-from sklearn.svm import SVC
+from sklearn.neighbors import KNeighborsClassifier
 import numpy as np
 
 import cv2
+
+
+# ------ Constants -------
 
 HEIGHT, WIDTH = 0, 1
 KEYPOINT_X, KEYPOINT_Y = 0, 1
 NOT_OBJECT, OBJECT = -1, 1
 
+
+# ---------- Helpers -----------
 
 def directory_filenames(dir_name):
     ans = []
@@ -34,6 +37,7 @@ def display_points(img, points, color=(0, 255, 0), size=5, window_name='Points D
         cv2.waitKey(5)
     cv2.imshow(window_name, img_copy)
 
+
 def show_siftpoints(img):
     sifter = cv2.xfeatures2d.SIFT_create()
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
@@ -42,15 +46,29 @@ def show_siftpoints(img):
     cv2.drawKeypoints(img, key_points, img_points)
     cv2.imshow('Siftpoints', img_points)
 
+
+# -------- Detector ---------
+
+positive_keypoints_cache = None
+
+
 class ObjectDetector:
     PARAMS = {
-        'FEATURES_NUM': 10
+        'FEATURES_NUM': 12,
+        'N_NEIGHBORS_DEFAULT': 9
     }
 
-    def __init__(self, to_print=True):
+    def __init__(self, bias=(1, 1), to_print=True):
+        """
+        Create an Object Detector that can be trained with images and then predict for a new image.
+        :param bias: If the objects are twice more popular than the non-objects, for example, one can give a bias.
+         Bias is a tuple, with negative bias then positive bias. So, (2, 1) means objects are twice more popular.
+        :param to_print: If the object detector should print debug messages as it trains
+        """
         self._k_features = None
         self._classifier = None
         self.to_print = to_print
+        self.bias = bias
 
     @staticmethod
     def _closest_point(goal, points):
@@ -71,8 +89,6 @@ class ObjectDetector:
         height = float(gray.shape[HEIGHT])
 
         estimated_size_factor = (width + height) / 2
-        # TODO - calculate the size factor specifically for each key point depending on the <angle, width, height>
-        # return [(p.angle, p.pt[0] / height, p.pt[1] / width, p.size / estimated_size_factor) for p in key_points]
         return [(p.pt[KEYPOINT_Y] / height, p.pt[KEYPOINT_X] / width) for p in key_points]
 
     def print(self, *args):
@@ -82,6 +98,10 @@ class ObjectDetector:
             print()
 
     def train_classifier(self, negative_vectors, positive_vectors):
+        # enlarge the two vectors by bias
+        negative_vectors = negative_vectors * self.bias[0]
+        positive_vectors = positive_vectors * self.bias[1]
+
         all_vectors = []
         all_vectors.extend(negative_vectors)
         all_vectors.extend(positive_vectors)
@@ -89,7 +109,8 @@ class ObjectDetector:
         expected_results = np.where(np.arange(start=1, stop=len(all_vectors) + 1) <= len(negative_vectors), NOT_OBJECT,
                                     OBJECT)
 
-        self._classifier = KNeighborsClassifier(8).fit(all_vectors, expected_results)
+        k_neighbors = ObjectDetector.PARAMS['N_NEIGHBORS_DEFAULT'] * (self.bias[0] + self.bias[1]) // (1 + 1)
+        self._classifier = KNeighborsClassifier(k_neighbors).fit(all_vectors, expected_results)
         # self._classifier = RandomForestClassifier().fit(all_vectors, expected_results)
 
     def set_k_features(self, positive_keypoints):
@@ -118,18 +139,23 @@ class ObjectDetector:
         return img_features
 
     def train(self, neg_input_dir, pos_input_dir):
+        global positive_keypoints_cache
+
         positive_images_paths = directory_filenames(pos_input_dir)
         negative_images_paths = directory_filenames(neg_input_dir)
-        positive_keypoints = []
 
         # Gather all keypoints of positive images
-        i = 1
-        for img_path in positive_images_paths:
-            img = cv2.imread(img_path)
-            positive_keypoints.extend(ObjectDetector._img_keypoint_vectors(img))
+        positive_keypoints = positive_keypoints_cache
+        if positive_keypoints is None:
+            positive_keypoints = []
+            i = 1
+            for img_path in positive_images_paths:
+                img = cv2.imread(img_path)
+                positive_keypoints.extend(ObjectDetector._img_keypoint_vectors(img))
 
-            self.print('Calculating features... {:.0f}%'.format(100. * i / len(positive_images_paths)))
-            i += 1
+                self.print('Calculating features... {:.0f}%'.format(100. * i / len(positive_images_paths)))
+                i += 1
+            positive_keypoints_cache = positive_keypoints
 
         # Cluster all the keypoints to k features
         self.set_k_features(positive_keypoints)

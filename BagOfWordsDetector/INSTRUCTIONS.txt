@@ -1,0 +1,44 @@
+Barak Ugav 	318336229
+Yishai Gronich 	208989186
+
+
+Using the Program
+=================
+
+From the directory with the file __main__.py, run the following command:
+
+>>   python . <MODE> (<IMG>)
+
+MODE can be one of following four strings: train, predict, predict_all, ROC
+
+	* train - trains with default parameters, and using the images in the pos and neg folders,
+		and saves the classifier to a file motorcycleDetector.pkl, so that it can be loaded later.
+
+		Should take about one minute.
+
+		The output of this command is a description of the steps that the program does while
+		preparing the classifier. Only the time-consuming steps are printed.
+
+	* predict - takes the given <IMG> paramter and returns True or False, indicating if the image 
+		is predicted to be a motorcycle or not. 
+		Loads the classifier from the motorcycleDetector.pkl file.
+
+		Should take a few seconds.
+
+	* predict_all - predicts all the images in the test_pos and test_neg directories.
+
+		Should take about one minute.
+
+		The output of this command is a list stating which images were predicted to have motorcycles
+		and which images were predicted not to have motorcycles. Finally, the program outputs the
+		precision/recall values achieved.
+	
+	* ROC - trys various values for classifier parameters, and trains the classifier with each couple
+		of parameters. After each training, all the images are predicted, and the precision/recall
+		values are outputted. 
+
+		Finally, a graph is plotted with all the precision/recall values gathered.
+
+		This mode may take a few hours to run because the classifier takes time to train, and
+		is trained with many different combinations of parameters.
+	
