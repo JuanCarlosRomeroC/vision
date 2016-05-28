@@ -1,26 +1,36 @@
 """
-    Usage: python . <command> <img_path>
+    Usage: python . <command> (<argument>)
 
-        command: can be one of the four "train", "predict", "predict_all", "roc"
+        command: can be one of the four "train", "predict", "predict_all", "predict_dir", "roc"
 
             train mode trains with default parameters, and using the images in the pos and neg folders,
                 and saves the classifier to a file motorcycleDetector.pkl, so that it can be loaded later.
-            predict takes the given <IMG> paramter and returns True or False if the image is predicted
-                to be a motorcycle or not.
+            predict takes the given image in the <argument> parameter and returns True or False if the image is  t
+                predicted to be a motorcycle or not.
             predict_all checks all the images in the test_pos and test_neg directories.
+            predict_dir takes all the images in the directory specified by the <argument> parameter, and outputs the
+                prediction for each one (whether it has a motorcycle or not). It later outputs the percentage of
+                images that were predicted to have a motorcycle.
             ROC uses the parameters used to create the ROC curve described in the report.
 
         img_path: used only if command is predict. Is the target image to predict a motorcycle is inside.
 """
+import os
 import pickle
 import re
+import sys
 
-import numpy as np
 import matplotlib.pyplot as plt
 
 import cv2
 import detector
-import sys
+
+
+def directory_filenames(dir_name):
+    ans = []
+    for (dirpath, _, filenames) in os.walk(dir_name):
+        ans = [dirpath + '/' + f for f in filenames]
+    return ans
 
 
 def save_object(obj, filename):
@@ -57,7 +67,7 @@ def detect_all(object_detector, test_neg_dir='./img/test_neg', test_pos_dir='./i
             print()
 
     print_('\nPositive Tests')
-    test_images_path = detector.directory_filenames(test_pos_dir)
+    test_images_path = directory_filenames(test_pos_dir)
     if difficulty is not None:
         if difficulty not in [1, 2, 3]:
             raise Exception('No such difficulty level.')
@@ -73,7 +83,7 @@ def detect_all(object_detector, test_neg_dir='./img/test_neg', test_pos_dir='./i
             print(prediction, ' ', img_path)
 
     print_('\nNegative Tests')
-    test_images_path = detector.directory_filenames(test_neg_dir)
+    test_images_path = directory_filenames(test_neg_dir)
     false_positive_count = 0
     for img_path in test_images_path:
         img = cv2.imread(img_path)
@@ -157,7 +167,25 @@ if __name__ == '__main__':
         print('The precision value is {} and the recall is {}'.format(precision, recall))
     elif mode == 'ROC':
         create_roc()
+    elif mode == 'predict_dir':
+        if len(sys.argv) < 3:
+            print('The predict_dir command required the parameter <DIR>.')
+            exit(1)
+        print('Predictions for all images in the directory {}:'.format(sys.argv[2]))
+        det = create_detector(to_train=False, to_save=False)
+        motors = 0
+        images = directory_filenames(sys.argv[2])
+        for img_path in images:
+            img = cv2.imread(img_path)
+            if img is None:
+                print('The file at {} is not a valid image file. Aborting.'.format(img_path))
+                exit(1)
+            has_motorcycle = det.predict(img)
+            if has_motorcycle:
+                motors += 1
+            print('{path}: {prediction}'.format(path=img_path, prediction='yes' if has_motorcycle else 'no'))
+        print('\nThe percentage of motorcycles is {}'.format(motors / len(images)))
     else:
-        print('Illegal argments: Unknown mode.')
+        print('Illegal arguments: Unknown mode.')
         print(__doc__)
         exit(1)

@@ -7,7 +7,7 @@ Using the Program
 
 From the directory with the file __main__.py, run the following command:
 
->>   python . <MODE> (<IMG>)
+>>   python . <MODE> (<argument>)
 
 MODE can be one of following four strings: train, predict, predict_all, ROC
 
@@ -19,8 +19,8 @@ MODE can be one of following four strings: train, predict, predict_all, ROC
 		The output of this command is a description of the steps that the program does while
 		preparing the classifier. Only the time-consuming steps are printed.
 
-	* predict - takes the given <IMG> paramter and returns True or False, indicating if the image 
-		is predicted to be a motorcycle or not. 
+	* predict - takes the given <argument> paramter, a path to an image and returns True or False, 
+		indicating if the image is predicted to be a motorcycle or not. 
 		Loads the classifier from the motorcycleDetector.pkl file.
 
 		Should take a few seconds.
@@ -32,6 +32,12 @@ MODE can be one of following four strings: train, predict, predict_all, ROC
 		The output of this command is a list stating which images were predicted to have motorcycles
 		and which images were predicted not to have motorcycles. Finally, the program outputs the
 		precision/recall values achieved.
+
+	* predict_dir - predict_dir takes all the images in the directory specified by the <argument> parameter, 
+		and outputs the prediction for each one (whether it has a motorcycle or not). It later outputs 
+		the percentage of images that were predicted to have a motorcycle.
+
+		Loads the classifier from the motorcycleDetector.pkl file.
 	
 	* ROC - trys various values for classifier parameters, and trains the classifier with each couple
 		of parameters. After each training, all the images are predicted, and the precision/recall

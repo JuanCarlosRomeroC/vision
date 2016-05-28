@@ -1,0 +1,28 @@
+Barak Ugav 	318336229
+Yishai Gronich 	208989186
+
+Using the Program
+=================
+
+Usage:
+    python tracker.py [options]
+
+Options:
+    -v <video_path>     A path from the current directory to the input video. Default value: ./input/Highway1.mp4
+    -b <bg_path>        A path from the current directory to an image file with a background model that fits the
+                        input video. Default value: ./input/background.jpg, fits the given video files Highway1.mp4,
+                        Highway3.mp4, Highway4.mp4.
+                        Notice: using AVI files are problematic on some systems.
+    --hide-blobs        If this parameter is used, the window showing the current frame's vehicle blobs is not
+                        shown. In default, this window is shown.
+    --fbf               Frame-by-frame. This changes the mode from video mode to manual mode. Moving between the
+                        video frames stops being automatic, and a keypress (i.e. spacebar) is needed to continue to
+                        the next frame.
+    -l <height>         The height of the counting-line. This is a floating point number between 0 and 1, exclusive.
+                        It measures the distance from the top of the video, where a line will be, and every vehicle
+                        that passes the line will be counted. After each frame, the number of vehicles that have
+                        already passed the line will be outputted to the screen.
+                        The default value for this parameter is 0.7, and values under 0.7 are discouraged because
+                        the vehicles are far away and in some cases multiple vehicles appear as one. The best values
+                        for this parameter are between 0.7 and 0.9 .
+    -h, --help          Display this help and exit
