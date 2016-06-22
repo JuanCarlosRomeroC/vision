@@ -1,0 +1,30 @@
+Barak Ugav 	318336229
+Yishai Gronich 	208989186
+
+Using the Program
+==========================
+
+This module allows the user to interactively build a 3D-model of an input image, and then calculate the height of
+different objects in the image based on one known height.
+
+Usage:
+    python run.py <img_path>
+
+After the image has loaded, you may start marking lines in the image. Four different marking types are needed:
+* '1' - Lines that in reality are parallel to one another and parallel to the ground.
+        These lines should not be parallel in the image.
+* '2' - Lines that in reality are parallel to one another and parallel to the ground, and not parallel to '1'
+        These lines should not be parallel in the image.
+* 'v' - Lines that are vertical in reality
+* 'k' - A known-height object. This is an object in the image with a known height.
+        When you mark this object, ALWAYS mark the BOTTOM first and then the top.
+
+By pressing on the keyboard on one of the above characters, you will enter the relevant marking mode. After you have
+chosen a mode, you can draw lines by clicking on where the line should start, and then clicking on where the line
+should end. At any time, you may press the character 'z', which will allow you to zoom. After you press 'z', your
+pen will turn gray, and you will be able to mark a rectangle to zoom to on the image. To zoom back out, press the
+character 'z' again.
+
+After you have marked all four types, you will be able to measure heights in the image. Press the character 'u',
+that stands for "unknown size" (as opposed to the known size 'k'). Then mark the object you would like to measure.
+Notice - when you mark this object, ALWAYS mark the BOTTOM first and then the top.
