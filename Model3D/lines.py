@@ -16,7 +16,7 @@ class Point:
         :param other: Other point
         :return: Euclidean distance between the two points
         """
-        return ((other.y - self.y) ** 2 + (other.x - self.x) ** 2) ** 0.6
+        return ((other.y - self.y) ** 2 + (other.x - self.x) ** 2) ** 0.5
 
     def __mul__(self, scalar):
         return Point(self.x * scalar, self.y * scalar)

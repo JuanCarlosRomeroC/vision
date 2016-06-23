@@ -23,6 +23,8 @@
     After you have marked all four types, you will be able to measure heights in the image. Press the character 'u',
     that stands for "unknown size" (as opposed to the known size 'k'). Then mark the object you would like to measure.
     Notice - when you mark this object, ALWAYS mark the BOTTOM first and then the top.
+
+    After measuring everything you every wished to measure, press ESC to exit the application.
 """
 
 import sys

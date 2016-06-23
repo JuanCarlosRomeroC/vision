@@ -82,6 +82,7 @@ class Model3D:
         head_line = vanishing.connect(point2)
 
         height_point = head_line.intersect(known_line)
+
         if self._vertical_top is None:
             return known_size * (known_bottom.distance(height_point) / known_bottom.distance(known_top))
         else:
