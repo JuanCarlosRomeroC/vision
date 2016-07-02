@@ -35,7 +35,7 @@ import model
 import pymsgbox
 import scipy.misc
 
-from Model3D import lines
+import lines
 
 ESC_KEY = 27
 i = 0
@@ -118,6 +118,9 @@ class ModelCreator:
         if self._current_rect_beg:
             rect = (self._current_rect_beg, self._cur_mouse_image_pos)
             cv2.rectangle(frame, rect[0], rect[1], ModelCreator.colors[ModelCreator.State.DRAWING_RECT_ZOOM], 2)
+        if self._model.horizon_point1 and self._model.horizon_point2:
+            point1, point2 = self._model.horizon_point1.inttuple, self._model.horizon_point2.inttuple
+            cv2.line(frame, point1, point2, ModelCreator.colors['HORIZON'], 1)
 
         if self._zoom_start is not None:
             frame = frame[self._zoom_start[1]:self._zoom_end[1], self._zoom_start[0]:self._zoom_end[0]]
@@ -210,7 +213,8 @@ class ModelCreator:
         State.DRAWING_LINE_VERTICAL: (0, 0, 255),
         State.DRAWING_LINE_KNOWNSIZE: (0, 255, 0),
         State.DRAWING_LINE_UNKNOWN: (255, 255, 255),
-        State.DRAWING_RECT_ZOOM: (200, 200, 200)
+        State.DRAWING_RECT_ZOOM: (200, 200, 200),
+        'HORIZON': (0, 255, 255)
     }
 
 

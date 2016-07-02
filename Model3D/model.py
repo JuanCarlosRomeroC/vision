@@ -9,6 +9,9 @@ class Model3D:
         self._vertical_top = None
         self._known_size = None
 
+        self.horizon_point1 = None  # saved for GUI
+        self.horizon_point2 = None  # saved for GUI
+
     def set_horizon(self, parallel_one, parallel_two):
         """
         Calculates the horizon in the picture
@@ -17,17 +20,18 @@ class Model3D:
         :param parallel_two: A list of lines that in 3d are parallel to one another and parallel ot the ground plane
          but not to lines from the list parallel_one
         """
-        horizon_point1 = utils.Averager()
+        self.horizon_point1 = utils.Averager()
         for l1, l2 in utils.choose_two(parallel_one):
-            horizon_point1.add_element(l1.intersect(l2))
-        horizon_point1 = horizon_point1.outcome
+            self.horizon_point1.add_element(l1.intersect(l2))
+        self.horizon_point1 = self.horizon_point1.outcome
 
-        horizon_point2 = utils.Averager()
+        self.horizon_point2 = utils.Averager()
         for l1, l2 in utils.choose_two(parallel_two):
-            horizon_point2.add_element(l1.intersect(l2))
-        horizon_point2 = horizon_point2.outcome
+            if l1.intersect(l2) is not None:
+                self.horizon_point2.add_element(l1.intersect(l2))
+        self.horizon_point2 = self.horizon_point2.outcome
 
-        self._horizon = horizon_point1.connect(horizon_point2)
+        self._horizon = self.horizon_point1.connect(self.horizon_point2)
 
     def set_vertical_top(self, parallel_vertical):
         """
